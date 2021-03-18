@@ -31,7 +31,11 @@ class WeightedAttention(Layer):
             initializer=initializer,
             dtype=np.float32)
 
-    def call(self, input):
+    def call(self, input, mask=None):
+        if mask is not None:
+            mask = tf.cast(mask, tf.float32)[:, :, None]
+        input *= mask
+
         results = []
         for i in range(self.n_heads):
             query = tf.matmul(input, self.query[i])
@@ -48,9 +52,9 @@ class WeightedAttention(Layer):
         return results
 
 
-class CosineReg(Layer):
+class Cosine(Layer):
     def __init__(self):
-        super(CosineReg, self).__init__()
+        super(Cosine, self).__init__()
     
     def call(self, inputs):
         left, right = inputs
@@ -62,7 +66,7 @@ def create_model(n_features, n_heads, in_dim, hidden_dim):
     inp_left = Input(shape=(None,))
     inp_right = Input(shape=(None,))
 
-    embedding = Embedding(n_features + 1, in_dim)
+    embedding = Embedding(n_features + 1, in_dim, mask_zero=True)
     weighted_attention = WeightedAttention(hidden_dim, n_heads)
     
     encoder = Sequential(name="encoder")
@@ -72,8 +76,8 @@ def create_model(n_features, n_heads, in_dim, hidden_dim):
     left = encoder(inp_left)
     right = encoder(inp_right)
 
-    cosine_reg = CosineReg()([left, right])
-    out = Dense(1, activation="sigmoid")(cosine_reg)
+    cosine = Cosine()([left, right])
+    out = Dense(1, activation="sigmoid")(cosine)
 
     model = Model([inp_left, inp_right], out)
     model.compile("nadam", "binary_crossentropy", metrics=["accuracy"])

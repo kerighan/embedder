@@ -120,6 +120,7 @@ class Embedder:
                        for w in x if w in self.stem])
         x = pad_sequences(series.tolist())
         y = self.encoder.predict(x)
+        return y
     
     def save(self, filename):
         import dill
